@@ -28,6 +28,7 @@
     </style>
 </head>
 <body>
+    <input type="hidden" id="csrf-token" value="{{ csrf_token }}">
     <div class="container mt-4">
         <h1 class="text-center mb-4">Sign Language to Speech</h1>
         
@@ -73,56 +74,98 @@
     <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
     <script>
     $(document).ready(function() {
-        // Update sentence display
-        function updateSentence() {
-            $.get("{% url 'get_sentence' %}", function(data) {
-                $('#current-sentence').text(data.sentence || 'Start signing to build your sentence');
-            });
+    // Get CSRF token from hidden input
+    const csrfToken = $('#csrf-token').val();
+
+    // Configure AJAX to include CSRF token in all requests
+    $.ajaxSetup({
+        headers: {
+            'X-CSRFToken': csrfToken
         }
-        
-        // Update sign feedback
-        function updateFeedback() {
-            $.get("{% url 'sign_status' %}", function(data) {
-                const feedback = $('#sign-feedback');
+    });
+
+    // Update sentence display
+    function updateSentence() {
+        $.ajax({
+            url: "{% url 'get_sentence' %}",
+            method: "GET",
+            success: function(data) {
+                $('#current-sentence').text(data.sentence || 'Start signing to build your sentence');
+            },
+            error: function(xhr, status, error) {
+                console.error("Error fetching sentence:", error);
+            }
+        });
+    }
+    
+    // Update sign feedback
+    function updateFeedback() {
+        $.ajax({
+            url: "{% url 'sign_status' %}",
+            method: "GET",
+            success: function(data) {
+                const $feedback = $('#sign-feedback');
+                $feedback.removeClass('alert-success alert-warning alert-info');
+                
                 if (data.confirmed_sign) {
-                    feedback.removeClass('alert-warning alert-info')
-                           .addClass('alert-success')
+                    $feedback.addClass('alert-success')
                            .text(`Detected: ${data.confirmed_sign}`);
                 } else if (data.in_cooldown) {
-                    feedback.removeClass('alert-success alert-info')
-                           .addClass('alert-warning')
+                    $feedback.addClass('alert-warning')
                            .text(`Please wait: ${data.cooldown_remaining.toFixed(1)}s`);
                 } else {
-                    feedback.removeClass('alert-success alert-warning')
-                           .addClass('alert-info')
+                    $feedback.addClass('alert-info')
                            .text('Ready for next sign');
                 }
-            });
-        }
-        
-        // Button handlers
-        $('#speak-btn').click(function() {
-            $.post("{% url 'speak_sentence' %}", function(data) {
+            },
+            error: function(xhr, status, error) {
+                console.error("Error fetching sign status:", error);
+                $('#sign-feedback').addClass('alert-danger')
+                                 .text('Error getting status');
+            }
+        });
+    }
+    
+    // Speak button handler
+    $('#speak-btn').click(function() {
+        $.ajax({
+            url: "{% url 'speak_sentence' %}",
+            method: "POST",
+            success: function(data) {
                 if (data.status === 'spoken') {
-                    alert('Speaking your sentence');
+                    {% comment %} alert('Speaking: ' + $('#current-sentence').text()); {% endcomment %}
                 } else {
                     alert('No sentence to speak');
                 }
-            });
+            },
+            error: function(xhr, status, error) {
+                alert('Error: Could not speak sentence');
+                console.error("Speak error:", error);
+            }
         });
-        
-        $('#clear-btn').click(function() {
-            $.post("{% url 'clear_sentence' %}", function(data) {
+    });
+    
+    // Clear button handler
+    $('#clear-btn').click(function() {
+        $.ajax({
+            url: "{% url 'clear_sentence' %}",
+            method: "POST",
+            success: function(data) {
                 if (data.status === 'cleared') {
                     $('#current-sentence').text('Start signing to build your sentence');
                 }
-            });
+            },
+            error: function(xhr, status, error) {
+                alert('Error: Could not clear sentence');
+                console.error("Clear error:", error);
+            }
         });
-        
-        // Start updating
-        setInterval(updateSentence, 300);
-        setInterval(updateFeedback, 300);
     });
+    
+    // Start periodic updates
+    setInterval(updateSentence, 300);
+    setInterval(updateFeedback, 300);
+});
     </script>
 </body>
 </html>

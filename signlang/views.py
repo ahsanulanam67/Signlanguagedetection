@@ -58,14 +58,15 @@ def speak_sentence(request):
     with sentence_lock:
         if current_sentence:
             sentence = ''.join(current_sentence)
-            text_to_speech(sentence)
+            text_to_speech(sentence)  # Check if this function executes
             return JsonResponse({'status': 'spoken'})
         return JsonResponse({'status': 'empty'})
 
 def clear_sentence(request):
     with sentence_lock:
         current_sentence.clear()
-        return JsonResponse({'status': 'cleared'})
+        print('Saboj Vai is checking if this function executes')
+        return JsonResponse({'status': 'cleared'})  # Ensure this matches frontend
 
 def sign_status(request):
     current_time = time.time()
