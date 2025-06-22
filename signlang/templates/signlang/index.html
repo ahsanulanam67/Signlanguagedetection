@@ -1,0 +1,128 @@
+{% load static %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Sign Language to Speech</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        #video-feed {
+            width: 100%;
+            max-height: 500px;
+        }
+        .sentence-display {
+            min-height: 100px;
+            font-size: 1.5rem;
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .btn-action {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 1.2rem;
+        }
+        #sign-feedback {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center mb-4">Sign Language to Speech</h1>
+        
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        Live Camera Feed
+                    </div>
+                    <div class="card-body p-0">
+                        <img src="{% url 'video_feed' %}" id="video-feed">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        Sentence Builder
+                    </div>
+                    <div class="card-body">
+                        <div class="sentence-display mb-3">
+                            <span id="current-sentence">Start signing to build your sentence</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button id="speak-btn" class="btn btn-primary btn-action">
+                                <i class="fas fa-volume-up"></i> Speak
+                            </button>
+                            <button id="clear-btn" class="btn btn-danger btn-action">
+                                <i class="fas fa-trash"></i> Clear
+                            </button>
+                        </div>
+                        <div id="sign-feedback" class="mt-3 alert alert-info">
+                            Ready for sign input
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://kit.fontawesome.com/a076d05399.js" crossorigin="anonymous"></script>
+    <script>
+    $(document).ready(function() {
+        // Update sentence display
+        function updateSentence() {
+            $.get("{% url 'get_sentence' %}", function(data) {
+                $('#current-sentence').text(data.sentence || 'Start signing to build your sentence');
+            });
+        }
+        
+        // Update sign feedback
+        function updateFeedback() {
+            $.get("{% url 'sign_status' %}", function(data) {
+                const feedback = $('#sign-feedback');
+                if (data.confirmed_sign) {
+                    feedback.removeClass('alert-warning alert-info')
+                           .addClass('alert-success')
+                           .text(`Detected: ${data.confirmed_sign}`);
+                } else if (data.in_cooldown) {
+                    feedback.removeClass('alert-success alert-info')
+                           .addClass('alert-warning')
+                           .text(`Please wait: ${data.cooldown_remaining.toFixed(1)}s`);
+                } else {
+                    feedback.removeClass('alert-success alert-warning')
+                           .addClass('alert-info')
+                           .text('Ready for next sign');
+                }
+            });
+        }
+        
+        // Button handlers
+        $('#speak-btn').click(function() {
+            $.post("{% url 'speak_sentence' %}", function(data) {
+                if (data.status === 'spoken') {
+                    alert('Speaking your sentence');
+                } else {
+                    alert('No sentence to speak');
+                }
+            });
+        });
+        
+        $('#clear-btn').click(function() {
+            $.post("{% url 'clear_sentence' %}", function(data) {
+                if (data.status === 'cleared') {
+                    $('#current-sentence').text('Start signing to build your sentence');
+                }
+            });
+        });
+        
+        // Start updating
+        setInterval(updateSentence, 300);
+        setInterval(updateFeedback, 300);
+    });
+    </script>
+</body>
+</html>
